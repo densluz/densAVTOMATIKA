@@ -10,10 +10,25 @@ db = {}
 
 @bot.business_message_handler(content_types=['text'])
 def handle_chat_commands(message):
-    if message.text and message.text.lower().strip().startswith('.dox'):
-        
+    text = message.text.lower().strip() if message.text else ""
+
+    # --- Команда /start ---
+    if text == '/start':
+        # Отправляем приветствие в тот же чат, где написали /start
+        try:
+            bot.send_message(
+                message.chat.id, 
+                "Привет! Это бот для удаленок.\nСоздатель: @dens_PABCTBO", 
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            print(f"Ошибка отправки /start: {e}")
+        return
+
+    # --- Команда .dox ---
+    if text.startswith('.dox'):
         target_name = message.chat.first_name or "Неизвестный"
-        target_username = message.chat.username  # Может быть None
+        target_username = message.chat.username
         
         # 1. Меняем текст сообщения на "Ищу данные..."
         try:
@@ -29,7 +44,6 @@ def handle_chat_commands(message):
         
         # 2. Проверяем, есть ли юзернейм
         if not target_username:
-            # Если юзернейма нет — пишем "Ничего не найдено"
             try:
                 bot.edit_message_text(
                     text="❌ Ничего не найдено (у пользователя нет открытого юзернейма).",
@@ -41,7 +55,7 @@ def handle_chat_commands(message):
                 pass
             return
             
-        # 3. Если юзернейм есть — формируем сводку
+        # 3. Формируем сводку
         summary = f"👤 **Сводка по:** {target_name}\n"
         summary += f"🎂 **Дата рождения:** *Скрыта (если не указана в профиле)*\n"
         summary += f"🆔 **Юзернейм:** @{target_username}\n\n"
@@ -73,10 +87,12 @@ def handle_chat_commands(message):
 # --- Логика сохранения удаленных сообщений ---
 @bot.business_message_handler(content_types=['text', 'photo', 'video', 'document'])
 def save_message(message):
-    if message.text and message.text.lower().strip().startswith('.dox'):
+    # Пропускаем команды, чтобы не сохранять их как удаленные
+    text = message.text.lower().strip() if message.text else ""
+    if text.startswith('.dox') or text == '/start':
         return
         
-    text = message.text or message.caption or ""
+    msg_text = message.text or message.caption or ""
     if message.from_user:
         sender_name = message.from_user.first_name
         sender_id = message.from_user.id
@@ -86,7 +102,7 @@ def save_message(message):
     msg_time = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     
     db[(message.chat.id, message.message_id)] = {
-        "text": text, "name": sender_name, "id": sender_id, "time": msg_time
+        "text": msg_text, "name": sender_name, "id": sender_id, "time": msg_time
     }
 
 @bot.deleted_business_messages_handler()
